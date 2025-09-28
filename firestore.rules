@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection
+    match /users/{userId} {
+      // Anyone can read any user's profile (to see nicknames)
+      allow read: if true;
+      
+      // Only the authenticated user can create their own profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Only the authenticated user can update their own profile
+      allow update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Designs collection
+    match /designs/{designId} {
+      // Anyone can read any design
+      allow read: if true;
+      
+      // An authenticated user can create a new design
+      allow create: if request.auth != null;
+      
+      // An authenticated user can update a design (for likes/favorites)
+      // Or the owner can update their own design
+      allow update: if request.auth != null && (
+          (request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['likedBy', 'favoritedBy'])) || 
+          (resource.data.userId == request.auth.uid)
+      );
+      
+      // Only the owner of a design can delete it
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+  }
+}
